@@ -1,0 +1,20 @@
+# ninja log v5
+1	808	1670503414212769531	CMakeFiles/AlphaServer.dir/ChunkManager.cpp.o	ef9768bcbabc7b1
+1	912	1670503414316104634	CMakeFiles/AlphaServer.dir/AlphaServer.cpp.o	870b32188af7bba9
+2	803	1670503414209436141	CMakeFiles/AlphaServer.dir/PlayerManager.cpp.o	7c11c84000b5b82f
+0	29	1670452552722759021	build.ninja	30585e02e619f114
+1	1290	1670503414692777751	CMakeFiles/AlphaServer.dir/Chunk.cpp.o	8f95972dcf347599
+1290	1359	1670503414762778950	AlphaServer	fa4e0bc8b74a8c51
+2	840	1670503414246103435	CMakeFiles/AlphaServer.dir/Client.cpp.o	c0583607e4cb6949
+1	733	1670503496150837682	CMakeFiles/AlphaServer.dir/ChunkManager.cpp.o	ef9768bcbabc7b1
+1	794	1670503496210838707	CMakeFiles/AlphaServer.dir/PlayerManager.cpp.o	7c11c84000b5b82f
+1	816	1670503496234172439	CMakeFiles/AlphaServer.dir/AlphaServer.cpp.o	870b32188af7bba9
+1	832	1670503496250839390	CMakeFiles/AlphaServer.dir/Client.cpp.o	c0583607e4cb6949
+1	1165	1670503496580845029	CMakeFiles/AlphaServer.dir/Chunk.cpp.o	8f95972dcf347599
+1165	1219	1670503496637512664	AlphaServer	fa4e0bc8b74a8c51
+1	714	1670504222317643563	CMakeFiles/AlphaServer.dir/ChunkManager.cpp.o	ef9768bcbabc7b1
+1	800	1670504222404311827	CMakeFiles/AlphaServer.dir/PlayerManager.cpp.o	7c11c84000b5b82f
+1	821	1670504222424312196	CMakeFiles/AlphaServer.dir/AlphaServer.cpp.o	870b32188af7bba9
+1	873	1670504222477646511	CMakeFiles/AlphaServer.dir/Client.cpp.o	c0583607e4cb6949
+1	1112	1670504222714317538	CMakeFiles/AlphaServer.dir/Chunk.cpp.o	8f95972dcf347599
+1112	1172	1670504222774318643	AlphaServer	fa4e0bc8b74a8c51
