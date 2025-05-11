@@ -93,7 +93,7 @@ int main() {
     server.sin_port = htons(25565);
 
     // Bind the socket
-    if (bind(socketfd, (struct sockaddr *) &server, sizeof(server)) == -1) {
+    if (bind(socketfd, (struct sockaddr*) &server, sizeof(server)) == -1) {
         perror("Bind failed");
         exit(-1);
     }
@@ -107,14 +107,13 @@ int main() {
 #endif
 
 
-    std::chrono::time_point<std::chrono::high_resolution_clock> tick_calc_time_from;
-    std::chrono::time_point<std::chrono::high_resolution_clock> tick_calc_time_now;
-    tick_calc_time_from = std::chrono::high_resolution_clock::now();
+    auto tick_calc_time_from = std::chrono::high_resolution_clock::now();
+    int llll = 0;
     while (true) {
         // Check if new clients have connected
         struct sockaddr_in address;
         unsigned int address_size = sizeof(address);
-        int accept_return = accept(socketfd, (struct sockaddr *) &address, &address_size);
+        int accept_return = accept(socketfd, (struct sockaddr*) &address, &address_size);
 #ifdef _WIN32
         if (accept_return == INVALID_SOCKET) {
             // Check if the error is a WOULDBLOCK error or not
@@ -131,10 +130,10 @@ int main() {
 #endif
         } else {
             // A connection was made
-            AlphaClient new_client;
-            new_client.socket = accept_return;
-            new_client.state = AlphaClient::HANDSHAKE_WAIT;
-            new_client.has_been_initialized = false;
+            AlphaClient* new_client = new AlphaClient(chunks);
+            new_client->socket = accept_return;
+            new_client->state = AlphaClient::HANDSHAKE_WAIT;
+            new_client->has_been_initialized = false;
             std::cout << "New client connected: " << inet_ntoa(address.sin_addr) << "\n";
             // Add client to client list
             players.AddConnectedClient(new_client);
@@ -144,8 +143,8 @@ int main() {
         players.HandlePlayers();
 
         // Check if a game tick needs to be performed
-        tick_calc_time_now = std::chrono::high_resolution_clock::now();
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(tick_calc_time_from - tick_calc_time_now).count() >=
+        auto tick_calc_time_now = std::chrono::high_resolution_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(tick_calc_time_now - tick_calc_time_from).count() >=
             50) {
             // Reset from time (so that the next things dont get counted
             tick_calc_time_from = std::chrono::high_resolution_clock::now();

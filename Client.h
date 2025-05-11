@@ -50,10 +50,16 @@ struct AlphaClient {
     std::vector<Vec2i> loaded_chunks;
     std::vector<bool> chunk_should_be_loaded;
 
-    int keepalive = 0;
-    int keepalive_kick = 1000;
+    ChunkManager& chunks;
 
-    AlphaClient() {
+    int keepalive = 0;
+    int keepalive_kick = 100000000;
+
+    // We send a keepalive packet every 10 game ticks
+    int send_keepalive_counter = 0;
+    const int send_keepalive_target = 10;
+
+    explicit AlphaClient(ChunkManager& chunks) : chunks(chunks) {
         GenerateHash();
         for (int i = 0; i < 36; i++) {
             if (i < 4) {
@@ -82,7 +88,7 @@ struct AlphaClient {
         // Generate random number
         unique_hash = rand();
         // Convert it to string as hex
-        char *data = (char *) malloc(8);
+        char* data = (char*) malloc(8);
         if (data == NULL) {
             perror("Failed to generate random hash");
             exit(1);
@@ -137,23 +143,23 @@ struct AlphaClient {
     void SendPositionAndRotation() {
         // Sends SERVER version of player position and look paket
         sendVar(socket, (unsigned char) 0x0d);
-        sendVar(socket, (double)pos.x);
-        sendVar(socket, (double)(pos.y + stance));
-        sendVar(socket, (double)pos.y);
-        sendVar(socket, (double)pos.z);
-        sendVar(socket, (float)rot.x);
-        sendVar(socket, (float)rot.y);
+        sendVar(socket, (double) pos.x);
+        sendVar(socket, (double) (pos.y + stance));
+        sendVar(socket, (double) pos.y);
+        sendVar(socket, (double) pos.z);
+        sendVar(socket, (float) rot.x);
+        sendVar(socket, (float) rot.y);
         sendVar(socket, (unsigned char) on_ground);
         std::cout << "Sent pos+rot: " << pos.x << " " << pos.y << " " << pos.z << " / " << rot.x << " " << rot.y
                   << "\n";
     }
 
     void SendPosition() {
-        sendVar(socket, (unsigned char)0xb);
-        sendVar(socket, (double)pos.x);
-        sendVar(socket, (double)pos.y);
-        sendVar(socket, (double)stance);
-        sendVar(socket, (double)pos.z);
+        sendVar(socket, (unsigned char) 0xb);
+        sendVar(socket, (double) pos.x);
+        sendVar(socket, (double) pos.y);
+        sendVar(socket, (double) stance);
+        sendVar(socket, (double) pos.z);
         sendVar(socket, (unsigned char) on_ground);
         std::cout << "Sent pos: " << pos.x << " " << pos.y << " " << pos.z << "\n";
     }
@@ -174,13 +180,30 @@ struct AlphaClient {
         sendVar(socket, (unsigned long long) time);
     }
 
+    void SendBlockUpdate(ChunkManager::BlockUpdate update) {
+        sendVar(socket, (unsigned char) 0x35);
+        sendVar(socket, (unsigned int) update.block.x);
+        sendVar(socket, (unsigned char) update.block.y);
+        sendVar(socket, (unsigned int) update.block.z);
+
+        sendVar(socket, (unsigned char) update.val);
+        sendVar(socket, (unsigned char) 0);
+
+        std::cout << "Sent block update" << std::endl;
+        std::cout << "\t" << update.block.x << "/" << update.block.y << "/" << update.block.z << " = " << update.val << std::endl;
+    }
+
+    void SendKeepAlive() {
+        sendVar(socket, (unsigned char)0);
+    }
+
     /// Performs network activity for this client.
     /// Variable kicked should be checked after running this function.
-    void DoClient(ChunkManager &chunks);
+    void DoClient();
 
     /// Perform per-tick activity for this client.
     /// Will kick the player upon a serious problem, but checking ist not strictly required.
-    void DoGameTick(ChunkManager &chunks);
+    void DoGameTick();
 
     /// Do Kick logic
     void DoKick(std::string reason) {
@@ -198,7 +221,7 @@ struct AlphaClient {
 
     // Ensure that a chunk is loaded
     // Returns true if chunk is presently loaded.
-    bool EnsureChunkIsLoaded(Vec2i chunk) {
+    inline bool EnsureChunkIsLoaded(const Vec2i& chunk) {
         // Try and find chunk in chunk list
         for (int i = 0; i < loaded_chunks.size(); i++) {
             if (loaded_chunks[i] == chunk) {
@@ -213,9 +236,15 @@ struct AlphaClient {
         return false;
     }
 
-    // Load/Unload/Do nothing if it doesnt need to be done with chunks
-    void DoChunks(ChunkManager &chunks);
+    // Load/Unload/Do nothing if it doesn't need to be done with chunks
+    void DoChunks();
 
     // Handle collisions
-    void DoCollision(ChunkManager &chunks);
+    void DoCollision();
+
+    // Handle Block digging
+    void DoBlockDig(int status, Vec3i block);
+
+    // Handle Server commands
+    void DoServerCommand(const std::string& cmdline);
 };

@@ -2,6 +2,9 @@
 #include <string>
 #include <vector>
 
+#include <boost/algorithm/string/classification.hpp> // Include boost::for is_any_of
+#include <boost/algorithm/string/split.hpp> // Include for boost::split
+
 #include "Packets.h"
 #include "Client.h"
 #include "ChunkManager.h"
@@ -9,7 +12,7 @@
 // Maximum number of packets per client to handle at once
 #define MAX_PACKTES_PER_CLIENT 25
 
-void AlphaClient::DoClient(ChunkManager &chunks) {
+void AlphaClient::DoClient() {
     if (kicked) { return; } // Do not process a kicked client
     try {
         switch (state) {
@@ -58,7 +61,7 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
                 if (username != name) {
                     // Send kick
                     sendVar(socket, (unsigned char) 0xff);
-                    sendVar(socket, "MC Bug: Handshake and login respone names differ");
+                    sendVar(socket, "MC Bug: Handshake and login response names differ");
 #ifdef _WIN32
                     closesocket(socket);
 #elif linux
@@ -92,7 +95,7 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
                     std::cout << "Initializing client " << name << "\n";
 
                     // Send chunks
-                    DoChunks(chunks);
+                    DoChunks();
 
                     // Send spawn position
                     sendVar(socket, (unsigned char) 0x06);
@@ -124,7 +127,8 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
                 // check if the socket has data available to be received
                 unsigned char packet_id = 0;
                 int packet_handled_count = 0;
-                while (packet_handled_count++ < MAX_PACKTES_PER_CLIENT && safeRecv(socket, (char *) &packet_id, 1) == 0) {
+                while (packet_handled_count++ < MAX_PACKTES_PER_CLIENT &&
+                       safeRecv(socket, (char*) &packet_id, 1) == 0) {
                     //std::cout << "Got packet: " << std::hex << (unsigned int) packet_id << std::dec << "\n";
                     switch (packet_id) {
                         // Keep-alive
@@ -134,13 +138,20 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
                         }
                         // Chat message
                         case 0x03: {
-                            chat_buffer.push_back(recvString(socket));
+                            std::string line = recvString(socket);
+                            if(!line.empty()) {
+                                if(line[0] == '/') {
+                                    DoServerCommand(line);
+                                } else {
+                                    chat_buffer.push_back(line);
+                                }
+                            }
                             break;
                         }
                         // Flying
                         case 0xa: {
                             on_ground = recvChar(socket) == 1;
-                            DoCollision(chunks);
+                            DoCollision();
                             break;
                         }
                         // Player position
@@ -150,8 +161,9 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
                             stance = recvDouble(socket) - pos.y;
                             pos.z = recvDouble(socket);
                             on_ground = recvChar(socket) == 1;
-                            std::cout << "Updated player position: " << pos.x << " " << pos.y << " " << pos.z << "(stance: " << stance << ", on_ground: " << on_ground << ")\n";
-                            DoCollision(chunks);
+                            //std::cout << "Updated player position: " << pos.x << " " << pos.y << " " << pos.z
+                            //          << "(stance: " << stance << ", on_ground: " << on_ground << ")\n";
+                            DoCollision();
                             break;
                         }
                         // Player look
@@ -172,7 +184,20 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
                             on_ground = recvChar(socket) == 1;
                             //std::cout << "Updated player position and rotation: " << pos.x << " " << pos.y << " "
                             //          << pos.z << " / " << rot.x << " " << rot.y << "\n";
-                            DoCollision(chunks);
+                            DoCollision();
+                            break;
+                        }
+                        // Block Dig
+                        case 0x0e: {
+                            unsigned char status = recvChar(socket);
+                            int x = (int)recvInt(socket);
+                            unsigned char y = recvChar(socket);
+                            int z = (int)recvInt(socket);
+                            unsigned char face = recvChar(socket);
+
+                            DoBlockDig(status, Vec3i(x, y, z));
+                            (void)face;
+
                             break;
                         }
                         // Arm animation
@@ -196,7 +221,7 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
                             DoKick("Internal server error (unsupported packet id)");
                             // Remove client
                             std::cout << "Kicked client, Invalid or unsupported packet id: " << std::hex
-                                      << (int) packet_id << std::dec << "\n";
+                                      << (int) packet_id << std::dec << "/" << (int) packet_id << "\n";
                             kicked = true;
                             return;
                         }
@@ -213,7 +238,7 @@ void AlphaClient::DoClient(ChunkManager &chunks) {
     }
 }
 
-void AlphaClient::DoGameTick(ChunkManager &chunks) {
+void AlphaClient::DoGameTick() {
     if (kicked) { return; } // Do not process a kicked client
 
     // Increment keep-alive counter
@@ -230,8 +255,11 @@ void AlphaClient::DoGameTick(ChunkManager &chunks) {
         return;
     }
     try {
-        // Send chunks
-
+        send_keepalive_counter++;
+        if(send_keepalive_counter >= send_keepalive_target) {
+            // We now send a keep alive packet
+            SendKeepAlive();
+        }
     } catch (...) {
         // Kick player
         try {
@@ -250,7 +278,7 @@ void AlphaClient::DoGameTick(ChunkManager &chunks) {
     }
 }
 
-void AlphaClient::DoChunks(ChunkManager &chunks) {
+void AlphaClient::DoChunks() {
     int chunk_x_center = (int) pos.x / 16;
     int chunk_y_center = (int) pos.z / 16;
 
@@ -263,7 +291,7 @@ void AlphaClient::DoChunks(ChunkManager &chunks) {
             if (!EnsureChunkIsLoaded(Vec2i(x, y))) {
                 // Load chunk
                 std::cout << "Player " << name << " loaded chunk " << x << " " << y << "\n";
-                Chunk &chunk = chunks.GetChunk(x, y);
+                Chunk& chunk = chunks.GetChunk(x, y);
                 chunk.SendPrechunk(socket, true);
                 chunk.SendChunk(socket);
             }
@@ -273,7 +301,7 @@ void AlphaClient::DoChunks(ChunkManager &chunks) {
     // Unload all chunks that should not be loaded
     for (int x = 0; x < chunk_should_be_loaded.size(); x++) {
         if (!chunk_should_be_loaded[x]) {
-            Chunk &unloaded_chunk = chunks.GetChunk(loaded_chunks[x], false);
+            Chunk& unloaded_chunk = chunks.GetChunk(loaded_chunks[x], false);
             unloaded_chunk.SendPrechunk(socket, false);
 
             // Remove this chunk
@@ -284,7 +312,7 @@ void AlphaClient::DoChunks(ChunkManager &chunks) {
     }
 }
 
-void AlphaClient::DoCollision(ChunkManager &chunks) {
+void AlphaClient::DoCollision() {
     // Being below bedrock should not be possible, set position to 128
     //if (pos.y < 0) {
     //    pos.y = 66;
@@ -296,5 +324,59 @@ void AlphaClient::DoCollision(ChunkManager &chunks) {
     //	pos.y++;
     //	SendPositionAndRotation();
     //}
+}
+
+void AlphaClient::DoBlockDig(int status, Vec3i block) {
+    switch(status) {
+        // The client seems to send a status 1, then 5 status 2's, until the block is dug
+        case 0: {
+            // Dig status 1
+            //std::cout << "Player " << name << " dig status 1 for block " << block.x << "/" << (int)block.y <<  "/" << block.z << std::endl;
+            break;
+        }
+        case 1: {
+            // Dig status 2
+            //std::cout << "Player " << name << " dig status 2 for block " << block.x << "/" << (int)block.y <<  "/" << block.z << std::endl;
+            break;
+        }
+        case 2: {
+            // Stopped digging
+            // x, y, z, face should be 0
+            //std::cout << "Player " << name << " has stopped digging" << std::endl;
+            break;
+        }
+        case 3: {
+            // Finished digging
+            std::cout << "Player " << name << " finished digging block " << block.x << "/" << (int)block.y <<  "/" << block.z << std::endl;
+            // We now need to set the block in the chunk to air, and send a block update to all clients
+            chunks.UpdateBlock(block, 0);
+            break;
+        }
+        default: {
+            std::cout << "Player " << name << " has an unknown status regarding block dig " << block.x << "/" << (int)block.y <<  "/" << block.z << std::endl;
+            std::cout << "\t(status = " << (int)status << ")" << std::endl;
+        }
+    }
+}
+
+void AlphaClient::DoServerCommand(const std::string& cmdline) {
+    std::vector<std::string> words;
+    boost::split(words, cmdline, boost::is_any_of(" "), boost::token_compress_on);
+
+    words[0].erase(words[0].begin());
+
+#define SERVERCMD_REQUIRE_ARG_COUNT(x) if(words.size() != (x + 1)) { SendChat(std::string("Error processing command: invalid arg count; expected " #x ", got ") + std::to_string(words.size() - 1)); return; }
+
+    if(words.empty()) {
+        SendChat("Error processing command: no cmd given");
+    } else if(words[0] == std::string("resend_chunk")) {
+        SERVERCMD_REQUIRE_ARG_COUNT(2)
+        int x = stoi(words[1]);
+        int y = stoi(words[2]);
+
+        chunks.GetChunk(x, y).SendChunk(socket);
+    } else {
+        SendChat(std::string("Error processing command: no command named ") + words[0]);
+    }
 }
 

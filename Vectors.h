@@ -18,7 +18,7 @@ struct Vec2i {
     int x = 0;
     int y = 0;
 
-    bool operator==(const Vec2i &b) {
+    bool operator==(const Vec2i& b) {
         return x == b.x && y == b.y;
     }
 };

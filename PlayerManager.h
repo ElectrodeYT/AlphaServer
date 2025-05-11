@@ -8,23 +8,24 @@
 
 class PlayerManager {
 public:
-    PlayerManager(ChunkManager &chunk_manager) : chunks(chunk_manager) {}
+    PlayerManager(ChunkManager& chunk_manager) : chunks(chunk_manager) {}
 
     void DoChunkLoading();
 
-    void BroadcastChat(std::string message);
+    void BroadcastChat(const std::string& message);
+    void BroadcastBlockUpdate(ChunkManager::BlockUpdate update);
 
     void HandlePlayers();
 
     void HandleGameTick();
 
-    void AddConnectedClient(AlphaClient client) {
-        client.has_been_initialized = false;
+    void AddConnectedClient(AlphaClient* client) {
+        client->has_been_initialized = false;
         clients.push_back(client);
     }
 
 private:
-    std::vector<AlphaClient> clients;
-    ChunkManager &chunks;
+    std::vector<AlphaClient*> clients;
+    ChunkManager& chunks;
 };
 

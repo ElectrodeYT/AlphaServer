@@ -46,16 +46,16 @@ void Chunk::SendChunk(int socket) {
 
 void Chunk::Generate() {
     // Set all blocks below level 64 as stone
-    for (int y = 0; y < 30; y++) {
+    for (int y = 0; y < 64; y++) {
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                SetBlock(Vec3i(x, y, z), 1);
+                SetBlock(Vec3i(x, y, z), ((x + y + z) % 6) + 1);
             }
         }
     }
 
     // Make every block have a lot of light
-    for (int y = 0; y < 30; y++) {
+    for (int y = 0; y < 64; y++) {
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
                 SetBlockLight(Vec3i(x, y, z), 255);
@@ -69,14 +69,18 @@ void Chunk::Generate() {
             SetBlockSkyLight(Vec3i(x, 30, z), 255);
         }
     }
+
+    // also make a single block dirt lol
+    SetBlock(Vec3i(0, 66, 0), 2);
 }
 
 void Chunk::GenerateBlockServerData() {
     // Clear the chunk data
     chunk_data.Clear();
-    chunk_data.AddByteArray((unsigned char *) blocks, sizeof(blocks));
-    chunk_data.AddByteArray((unsigned char *) blocks_metadata_data, 17472);
-    chunk_data.AddByteArray((unsigned char *) blocks_light_data, 17472);
-    chunk_data.AddByteArray((unsigned char *) blocks_sky_light_data, 17472);
+    chunk_data.AddByteArray((unsigned char*) blocks, sizeof(blocks));
+    chunk_data.AddByteArray((unsigned char*) blocks_metadata_data, 17472);
+    chunk_data.AddByteArray((unsigned char*) blocks_light_data, 17472);
+    chunk_data.AddByteArray((unsigned char*) blocks_sky_light_data, 17472);
     chunk_dirty = false;
+    std::cout << "Generated server data for chunk " << x << "/" << y << std::endl;
 }
